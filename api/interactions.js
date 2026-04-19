@@ -11,7 +11,7 @@ const { logSuccess, logInfo, logError } = require('../src/utils/logger');
 
 const app = express();
 
-app.get('/', (_req, res) => {
+app.get('/api/interactions', (_req, res) => {
   return res.status(200).json({
     ok: true,
     service: 'bot-discord-gta-rp',
@@ -19,7 +19,7 @@ app.get('/', (_req, res) => {
 });
 
 app.post(
-  '/',
+  '/api/interactions',
   verifyKeyMiddleware(process.env.PUBLIC_KEY),
   async (req, res) => {
     try {
@@ -50,7 +50,7 @@ if (require.main === module) {
 
   app.listen(port, () => {
     logSuccess(`Bot base online em http://localhost:${port}`);
-    logInfo('Endpoint pronto');
+    logInfo('Endpoint pronto em /api/interactions');
   });
 }
 
