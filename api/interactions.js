@@ -19,7 +19,7 @@ app.get('/', (_req, res) => {
 });
 
 app.post(
-  '/api/interactions',
+  '/',
   verifyKeyMiddleware(process.env.PUBLIC_KEY),
   async (req, res) => {
     try {
@@ -50,7 +50,7 @@ if (require.main === module) {
 
   app.listen(port, () => {
     logSuccess(`Bot base online em http://localhost:${port}`);
-    logInfo('Endpoint pronto em /api/interactions');
+    logInfo('Endpoint pronto');
   });
 }
 

@@ -4,11 +4,5 @@
     "api/interactions.js": {
       "runtime": "@vercel/node@3.2.24"
     }
-  },
-  "routes": [
-    {
-      "src": "/api/interactions",
-      "dest": "/api/interactions.js"
-    }
-  ]
+  }
 }
