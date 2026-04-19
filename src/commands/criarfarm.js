@@ -1,7 +1,6 @@
 const {
   InteractionResponseType,
   ChannelTypes,
-  PermissionFlagsBits,
   MessageComponentTypes,
   ButtonStyleTypes,
 } = require('discord-interactions');
@@ -14,6 +13,25 @@ const { buildFarmControlEmbed } = require('../utils/embeds');
 const { serializeFarmState, calculateFarmProgress } = require('../utils/farm-state');
 const { logSuccess, logError } = require('../utils/logger');
 
+// Permissões do Discord em bigint/string
+const PERMISSIONS = {
+  VIEW_CHANNEL: 1024n,
+  SEND_MESSAGES: 2048n,
+  READ_MESSAGE_HISTORY: 65536n,
+};
+
+function allowChannelBasic() {
+  return String(
+    PERMISSIONS.VIEW_CHANNEL |
+    PERMISSIONS.SEND_MESSAGES |
+    PERMISSIONS.READ_MESSAGE_HISTORY
+  );
+}
+
+function denyViewChannel() {
+  return String(PERMISSIONS.VIEW_CHANNEL);
+}
+
 function getOption(interaction, name) {
   return interaction.data.options?.find((option) => option.name === name)?.value;
 }
@@ -24,11 +42,7 @@ function buildStaffPermissionOverwrites() {
   return staffRoleIds.map((roleId) => ({
     id: roleId,
     type: 0,
-    allow: String(
-      PermissionFlagsBits.ViewChannel |
-      PermissionFlagsBits.SendMessages |
-      PermissionFlagsBits.ReadMessageHistory
-    ),
+    allow: allowChannelBasic(),
   }));
 }
 
@@ -85,17 +99,13 @@ async function handleCriarFarmCommand(interaction) {
       {
         id: process.env.GUILD_ID,
         type: 0,
-        deny: String(PermissionFlagsBits.ViewChannel),
+        deny: denyViewChannel(),
       },
       ...buildStaffPermissionOverwrites(),
       {
         id: memberId,
         type: 1,
-        allow: String(
-          PermissionFlagsBits.ViewChannel |
-          PermissionFlagsBits.SendMessages |
-          PermissionFlagsBits.ReadMessageHistory
-        ),
+        allow: allowChannelBasic(),
       },
     ];
 
