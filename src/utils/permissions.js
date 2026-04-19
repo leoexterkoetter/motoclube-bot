@@ -1,23 +1,26 @@
-function memberHasRole(interaction, roleId) {
-  const memberRoles = interaction.member?.roles || [];
-  return memberRoles.includes(roleId);
-}
-
 function getStaffRoleIds() {
-  return String(process.env.CARGOS_STAFF || process.env.CARGO_STAFF || '')
+  const multiple = String(process.env.CARGOS_STAFF || '')
     .split(',')
-    .map((item) => item.trim())
+    .map((id) => id.trim())
     .filter(Boolean);
+
+  const single = String(process.env.CARGO_STAFF || '').trim();
+
+  if (single) {
+    multiple.push(single);
+  }
+
+  return [...new Set(multiple)];
 }
 
 function isStaff(interaction) {
-  const roles = getStaffRoleIds();
-  if (roles.length === 0) return false;
-  return roles.some((roleId) => memberHasRole(interaction, roleId));
+  const memberRoles = interaction.member?.roles || [];
+  const allowedRoles = getStaffRoleIds();
+
+  return memberRoles.some((roleId) => allowedRoles.includes(String(roleId)));
 }
 
 module.exports = {
-  memberHasRole,
   getStaffRoleIds,
   isStaff,
 };
