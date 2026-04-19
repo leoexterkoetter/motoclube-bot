@@ -26,8 +26,8 @@ function buildStaffPermissionOverwrites() {
     type: 0,
     allow: String(
       PermissionFlagsBits.ViewChannel |
-        PermissionFlagsBits.SendMessages |
-        PermissionFlagsBits.ReadMessageHistory
+      PermissionFlagsBits.SendMessages |
+      PermissionFlagsBits.ReadMessageHistory
     ),
   }));
 }
@@ -42,6 +42,11 @@ async function handleCriarFarmCommand(interaction) {
     const cityId = String(getOption(interaction, 'id_cidade') || '');
     const metaSemanal = Number(getOption(interaction, 'meta_semanal') || 0);
     const observacao = getOption(interaction, 'observacao') || 'Sem observações iniciais.';
+
+    console.log('CRIARFARM memberId:', memberId);
+    console.log('CRIARFARM cityId:', cityId);
+    console.log('CRIARFARM metaSemanal:', metaSemanal);
+    console.log('CRIARFARM categoria:', process.env.CATEGORIA_FARM);
 
     if (!memberId || !cityId || !metaSemanal) {
       return ephemeral('❌ Dados inválidos para criar a aba de farm.');
@@ -88,19 +93,26 @@ async function handleCriarFarmCommand(interaction) {
         type: 1,
         allow: String(
           PermissionFlagsBits.ViewChannel |
-            PermissionFlagsBits.SendMessages |
-            PermissionFlagsBits.ReadMessageHistory
+          PermissionFlagsBits.SendMessages |
+          PermissionFlagsBits.ReadMessageHistory
         ),
       },
     ];
 
-    const createdChannel = await createGuildChannel(process.env.GUILD_ID, {
+    const channelPayload = {
       name: channelName,
       type: ChannelTypes.GUILD_TEXT,
-      parent_id: process.env.CATEGORIA_FARM || undefined,
       topic: serializeFarmState(baseState),
       permission_overwrites: permissionOverwrites,
-    });
+    };
+
+    if (process.env.CATEGORIA_FARM) {
+      channelPayload.parent_id = process.env.CATEGORIA_FARM;
+    }
+
+    console.log('CRIARFARM payload canal:', JSON.stringify(channelPayload, null, 2));
+
+    const createdChannel = await createGuildChannel(process.env.GUILD_ID, channelPayload);
 
     const mainMessage = await sendChannelMessage(createdChannel.id, {
       content: `<@${memberId}>`,
