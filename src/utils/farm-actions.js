@@ -1,13 +1,21 @@
-async function updateFarmChannelTopic() {
-  throw new Error('updateFarmChannelTopic será conectado na Parte 3.');
+const { editChannel, editMessage, sendChannelMessage } = require('../services/channels');
+const { serializeFarmState } = require('./farm-state');
+const { buildFarmControlEmbed } = require('./embeds');
+
+async function updateFarmChannelTopic(channelId, state) {
+  return editChannel(channelId, {
+    topic: serializeFarmState(state),
+  });
 }
 
-async function updateFarmMainMessage() {
-  throw new Error('updateFarmMainMessage será conectado na Parte 3.');
+async function updateFarmMainMessage(interaction, state) {
+  return editMessage(interaction.channel_id, interaction.message.id, {
+    embeds: [buildFarmControlEmbed(state)],
+  });
 }
 
-async function postFarmLog() {
-  throw new Error('postFarmLog será conectado na Parte 3.');
+async function postFarmLog(channelId, content) {
+  return sendChannelMessage(channelId, { content });
 }
 
 module.exports = {

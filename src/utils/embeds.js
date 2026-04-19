@@ -1,8 +1,5 @@
-const {
-  MessageComponentTypes,
-  ButtonStyleTypes,
-} = require('discord-interactions');
 const { COLORS } = require('./constants');
+const { formatCurrency } = require('./farm-state');
 
 function baseEmbed({ title, description, color = COLORS.INFO, fields = [], footer }) {
   return {
@@ -41,43 +38,13 @@ function buildSetRequestEmbed({
     title: 'Nova Solicitação de Set',
     color: COLORS.WARNING,
     fields: [
-      {
-        name: '👤 Discord',
-        value: discordName || '-',
-        inline: false,
-      },
-      {
-        name: '🎮 Nome RP',
-        value: nomeRp || '-',
-        inline: true,
-      },
-      {
-        name: '🆔 ID',
-        value: idCidade || '-',
-        inline: true,
-      },
-      {
-        name: '📞 Telefone',
-        value: telefone || '-',
-        inline: true,
-      },
-      {
-        name: '🤝 Indicação',
-        value: indicacao || '-',
-        inline: false,
-      },
-      {
-        name: '⏰ Data/Hora',
-        value: new Date(createdAt).toLocaleString('pt-BR', {
-          timeZone: 'America/Sao_Paulo',
-        }),
-        inline: false,
-      },
-      {
-        name: '📌 Status',
-        value: statusText || 'Aguardando',
-        inline: false,
-      },
+      { name: '👤 Discord', value: discordName || '-', inline: false },
+      { name: '🎮 Nome RP', value: nomeRp || '-', inline: true },
+      { name: '🆔 ID', value: idCidade || '-', inline: true },
+      { name: '📞 Telefone', value: telefone || '-', inline: true },
+      { name: '🤝 Indicação', value: indicacao || '-', inline: false },
+      { name: '⏰ Data/Hora', value: new Date(createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }), inline: false },
+      { name: '📌 Status', value: statusText || 'Aguardando', inline: false },
     ],
     footer: {
       text: footerText || 'set_request',
@@ -86,40 +53,33 @@ function buildSetRequestEmbed({
   };
 }
 
-function buildSetDecisionComponents() {
-  return [
-    {
-      type: 1,
-      components: [
-        {
-          type: MessageComponentTypes.BUTTON,
-          style: ButtonStyleTypes.SUCCESS,
-          custom_id: 'set_approve',
-          label: 'Aprovar',
-          emoji: { name: '✅' },
-        },
-        {
-          type: MessageComponentTypes.BUTTON,
-          style: ButtonStyleTypes.DANGER,
-          custom_id: 'set_reject',
-          label: 'Recusar',
-          emoji: { name: '❌' },
-        },
-        {
-          type: MessageComponentTypes.BUTTON,
-          style: ButtonStyleTypes.SECONDARY,
-          custom_id: 'set_review',
-          label: 'Revisar',
-          emoji: { name: '🛠' },
-        },
-      ],
+function buildFarmControlEmbed(state) {
+  return {
+    title: '📦 Controle de Farm',
+    description: 'Acompanhamento individual do membro.',
+    color: state.status === 'Meta batida' ? COLORS.SUCCESS : COLORS.INFO,
+    fields: [
+      { name: '👤 Membro', value: `<@${state.userId}>`, inline: true },
+      { name: '🆔 ID Cidade', value: state.idCidade, inline: true },
+      { name: '🧑‍💼 Criado por', value: state.criadoPor || '-', inline: true },
+      { name: '💰 Meta semanal', value: formatCurrency(state.metaSemanal), inline: true },
+      { name: '📈 Total entregue', value: formatCurrency(state.totalEntregue), inline: true },
+      { name: '📉 Faltante', value: formatCurrency(state.faltante), inline: true },
+      { name: '📊 Progresso', value: `${state.progresso}%`, inline: true },
+      { name: '📌 Status', value: state.status, inline: true },
+      { name: '🕒 Atualizado em', value: new Date(state.atualizadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }), inline: true },
+      { name: '📝 Observação', value: state.observacao || 'Sem observações.', inline: false },
+    ],
+    footer: {
+      text: 'farm_control',
     },
-  ];
+    timestamp: new Date().toISOString(),
+  };
 }
 
 module.exports = {
   baseEmbed,
   buildSetPanelEmbed,
   buildSetRequestEmbed,
-  buildSetDecisionComponents,
+  buildFarmControlEmbed,
 };

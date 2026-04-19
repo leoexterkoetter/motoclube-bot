@@ -1,6 +1,8 @@
-const { ephemeral } = require('../utils/responses');
+const { InteractionResponseType } = require('discord-interactions');
 const { handleSetButtonInteraction } = require('./buttons/set-buttons');
+const { handleFarmButtonInteraction } = require('./buttons/farm-buttons');
 const { handleSetModalSubmit } = require('./modals/set-modal');
+const { handleFarmModalSubmit } = require('./modals/farm-modal');
 
 async function handleComponentInteraction(interaction) {
   const customId = interaction.data.custom_id;
@@ -9,7 +11,17 @@ async function handleComponentInteraction(interaction) {
     return handleSetButtonInteraction(interaction);
   }
 
-  return ephemeral('⚠️ Este botão ainda não foi implementado.');
+  if (customId.startsWith('farm_')) {
+    return handleFarmButtonInteraction(interaction);
+  }
+
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      content: '⚠️ Este botão ainda não foi implementado.',
+      flags: 64,
+    },
+  };
 }
 
 async function handleModalSubmit(interaction) {
@@ -19,7 +31,17 @@ async function handleModalSubmit(interaction) {
     return handleSetModalSubmit(interaction);
   }
 
-  return ephemeral('⚠️ Este modal ainda não foi implementado.');
+  if (customId.startsWith('farm_modal_')) {
+    return handleFarmModalSubmit(interaction);
+  }
+
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      content: '⚠️ Este modal ainda não foi implementado.',
+      flags: 64,
+    },
+  };
 }
 
 module.exports = {
