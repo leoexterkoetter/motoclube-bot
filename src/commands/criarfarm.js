@@ -5,164 +5,177 @@ const {
   MessageComponentTypes,
   ButtonStyleTypes,
 } = require('discord-interactions');
-const { isStaff } = require('../utils/permissions');
+const { isStaff, getStaffRoleIds } = require('../utils/permissions');
+const { ephemeral } = require('../utils/responses');
 const { buildFarmChannelName } = require('../utils/channel-name');
-const { createGuildChannel, sendChannelMessage } = require('../services/channels');
+const { createGuildChannel, sendChannelMessage, editChannel } = require('../services/channels');
 const { fetchGuildChannels } = require('../services/guild');
 const { buildFarmControlEmbed } = require('../utils/embeds');
-const { serializeFarmState } = require('../utils/farm-state');
-const { logSuccess } = require('../utils/logger');
+const { serializeFarmState, calculateFarmProgress } = require('../utils/farm-state');
+const { logSuccess, logError } = require('../utils/logger');
 
 function getOption(interaction, name) {
   return interaction.data.options?.find((option) => option.name === name)?.value;
 }
 
+function buildStaffPermissionOverwrites() {
+  const staffRoleIds = getStaffRoleIds();
+
+  return staffRoleIds.map((roleId) => ({
+    id: roleId,
+    type: 0,
+    allow: String(
+      PermissionFlagsBits.ViewChannel |
+        PermissionFlagsBits.SendMessages |
+        PermissionFlagsBits.ReadMessageHistory
+    ),
+  }));
+}
+
 async function handleCriarFarmCommand(interaction) {
-  if (!isStaff(interaction)) {
+  try {
+    if (!isStaff(interaction)) {
+      return ephemeral('❌ Você não possui permissão para usar este comando.');
+    }
+
+    const memberId = getOption(interaction, 'membro');
+    const cityId = String(getOption(interaction, 'id_cidade') || '');
+    const metaSemanal = Number(getOption(interaction, 'meta_semanal') || 0);
+    const observacao = getOption(interaction, 'observacao') || 'Sem observações iniciais.';
+
+    if (!memberId || !cityId || !metaSemanal) {
+      return ephemeral('❌ Dados inválidos para criar a aba de farm.');
+    }
+
+    const resolvedUser = interaction.data.resolved?.users?.[memberId];
+    const resolvedGuildMember = interaction.data.resolved?.members?.[memberId];
+    const displayName = resolvedGuildMember?.nick || resolvedUser?.username || 'membro';
+    const channelName = buildFarmChannelName(displayName, cityId);
+
+    const channels = await fetchGuildChannels(process.env.GUILD_ID);
+    const alreadyExists = channels.some((channel) => channel.name === channelName);
+
+    if (alreadyExists) {
+      return ephemeral('❌ Já existe uma aba de farm para este membro.');
+    }
+
+    const baseState = calculateFarmProgress({
+      userId: memberId,
+      discordName: resolvedUser?.username || displayName,
+      nomeExibicao: displayName,
+      idCidade: cityId,
+      metaSemanal,
+      totalEntregue: 0,
+      faltante: metaSemanal,
+      progresso: 0,
+      status: 'Pendente',
+      observacao,
+      criadoPor: interaction.member.user.username,
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
+      mainMessageId: '',
+    });
+
+    const permissionOverwrites = [
+      {
+        id: process.env.GUILD_ID,
+        type: 0,
+        deny: String(PermissionFlagsBits.ViewChannel),
+      },
+      ...buildStaffPermissionOverwrites(),
+      {
+        id: memberId,
+        type: 1,
+        allow: String(
+          PermissionFlagsBits.ViewChannel |
+            PermissionFlagsBits.SendMessages |
+            PermissionFlagsBits.ReadMessageHistory
+        ),
+      },
+    ];
+
+    const createdChannel = await createGuildChannel(process.env.GUILD_ID, {
+      name: channelName,
+      type: ChannelTypes.GUILD_TEXT,
+      parent_id: process.env.CATEGORIA_FARM || undefined,
+      topic: serializeFarmState(baseState),
+      permission_overwrites: permissionOverwrites,
+    });
+
+    const mainMessage = await sendChannelMessage(createdChannel.id, {
+      content: `<@${memberId}>`,
+      embeds: [buildFarmControlEmbed(baseState)],
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: MessageComponentTypes.BUTTON,
+              style: ButtonStyleTypes.SUCCESS,
+              custom_id: 'farm_register_delivery',
+              label: 'Registrar entrega',
+              emoji: { name: '✅' },
+            },
+            {
+              type: MessageComponentTypes.BUTTON,
+              style: ButtonStyleTypes.PRIMARY,
+              custom_id: 'farm_update_goal',
+              label: 'Atualizar meta',
+              emoji: { name: '💰' },
+            },
+            {
+              type: MessageComponentTypes.BUTTON,
+              style: ButtonStyleTypes.SECONDARY,
+              custom_id: 'farm_add_note',
+              label: 'Adicionar observação',
+              emoji: { name: '📝' },
+            },
+          ],
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: MessageComponentTypes.BUTTON,
+              style: ButtonStyleTypes.SECONDARY,
+              custom_id: 'farm_reset_week',
+              label: 'Resetar semana',
+              emoji: { name: '♻️' },
+            },
+            {
+              type: MessageComponentTypes.BUTTON,
+              style: ButtonStyleTypes.DANGER,
+              custom_id: 'farm_delete_channel',
+              label: 'Excluir aba',
+              emoji: { name: '🗑️' },
+            },
+          ],
+        },
+      ],
+    });
+
+    const finalState = {
+      ...baseState,
+      mainMessageId: mainMessage.id,
+    };
+
+    await editChannel(createdChannel.id, {
+      topic: serializeFarmState(finalState),
+    });
+
+    logSuccess(`Aba de farm criada para ${displayName}.`);
+
     return {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: '❌ Você não possui permissão para usar este comando.',
+        content: `✅ Aba de farm criada com sucesso: <#${createdChannel.id}>`,
         flags: 64,
       },
     };
+  } catch (error) {
+    logError('Erro ao criar aba de farm.', error);
+    return ephemeral('❌ Erro ao criar aba de farm. Verifique os logs da Vercel.');
   }
-
-  const memberId = getOption(interaction, 'membro');
-  const cityId = getOption(interaction, 'id_cidade');
-  const metaSemanal = Number(getOption(interaction, 'meta_semanal'));
-  const observacao = getOption(interaction, 'observacao') || 'Sem observações iniciais.';
-
-  const resolvedMember = interaction.data.resolved?.users?.[memberId];
-  const resolvedGuildMember = interaction.data.resolved?.members?.[memberId];
-
-  const displayName = resolvedGuildMember?.nick || resolvedMember?.username || 'membro';
-  const channelName = buildFarmChannelName(displayName, cityId);
-
-  const channels = await fetchGuildChannels(process.env.GUILD_ID);
-  const alreadyExists = channels.some((channel) => channel.name === channelName);
-
-  if (alreadyExists) {
-    return {
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: {
-        content: '❌ Já existe uma aba de farm para este membro.',
-        flags: 64,
-      },
-    };
-  }
-
-  const farmState = {
-    userId: memberId,
-    discordName: resolvedMember?.username || displayName,
-    nomeExibicao: displayName,
-    idCidade: String(cityId),
-    metaSemanal,
-    totalEntregue: 0,
-    faltante: metaSemanal,
-    progresso: 0,
-    status: 'Pendente',
-    observacao,
-    criadoPor: interaction.member.user.username,
-    criadoEm: new Date().toISOString(),
-    atualizadoEm: new Date().toISOString(),
-  };
-
-  const permissionOverwrites = [
-    {
-      id: process.env.GUILD_ID,
-      type: 0,
-      deny: String(PermissionFlagsBits.ViewChannel),
-    },
-    {
-      id: process.env.CARGO_STAFF,
-      type: 0,
-      allow: String(
-        PermissionFlagsBits.ViewChannel |
-        PermissionFlagsBits.SendMessages |
-        PermissionFlagsBits.ReadMessageHistory
-      ),
-    },
-    {
-      id: memberId,
-      type: 1,
-      allow: String(
-        PermissionFlagsBits.ViewChannel |
-        PermissionFlagsBits.SendMessages |
-        PermissionFlagsBits.ReadMessageHistory
-      ),
-    },
-  ];
-
-  const createdChannel = await createGuildChannel(process.env.GUILD_ID, {
-    name: channelName,
-    type: ChannelTypes.GUILD_TEXT,
-    parent_id: process.env.CATEGORIA_FARM || undefined,
-    topic: serializeFarmState(farmState),
-    permission_overwrites: permissionOverwrites,
-  });
-
-  await sendChannelMessage(createdChannel.id, {
-    content: `<@${memberId}>`,
-    embeds: [buildFarmControlEmbed(farmState)],
-    components: [
-      {
-        type: 1,
-        components: [
-          {
-            type: MessageComponentTypes.BUTTON,
-            style: ButtonStyleTypes.SUCCESS,
-            custom_id: 'farm_register_delivery',
-            label: 'Registrar entrega',
-            emoji: { name: '✅' },
-          },
-          {
-            type: MessageComponentTypes.BUTTON,
-            style: ButtonStyleTypes.PRIMARY,
-            custom_id: 'farm_update_goal',
-            label: 'Atualizar meta',
-            emoji: { name: '💰' },
-          },
-          {
-            type: MessageComponentTypes.BUTTON,
-            style: ButtonStyleTypes.SECONDARY,
-            custom_id: 'farm_add_note',
-            label: 'Adicionar observação',
-            emoji: { name: '📝' },
-          },
-        ],
-      },
-      {
-        type: 1,
-        components: [
-          {
-            type: MessageComponentTypes.BUTTON,
-            style: ButtonStyleTypes.SECONDARY,
-            custom_id: 'farm_reset_week',
-            label: 'Resetar semana',
-            emoji: { name: '♻️' },
-          },
-          {
-            type: MessageComponentTypes.BUTTON,
-            style: ButtonStyleTypes.DANGER,
-            custom_id: 'farm_delete_channel',
-            label: 'Excluir aba',
-            emoji: { name: '🗑️' },
-          },
-        ],
-      },
-    ],
-  });
-
-  logSuccess(`Aba de farm criada para ${displayName}.`);
-
-  return {
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-    data: {
-      content: `✅ Aba de farm criada com sucesso: <#${createdChannel.id}>`,
-      flags: 64,
-    },
-  };
 }
 
 module.exports = {

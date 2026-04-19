@@ -17,10 +17,9 @@ function isStaff(interaction) {
   const memberRoles = interaction.member?.roles || [];
   const allowedRoles = getStaffRoleIds();
 
-  console.log('ROLES DO MEMBRO:', memberRoles);
-  console.log('ROLES PERMITIDOS:', allowedRoles);
-
-  return memberRoles.some((roleId) => allowedRoles.includes(String(roleId)));
+  return memberRoles.some((roleId) =>
+    allowedRoles.includes(String(roleId))
+  );
 }
 
 module.exports = {
