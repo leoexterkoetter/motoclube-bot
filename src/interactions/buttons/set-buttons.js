@@ -56,68 +56,64 @@ async function handleSetButtonInteraction(interaction) {
   const customId = interaction.data.custom_id;
 
   if (customId === 'set_open_modal') {
-    return {
-      type: InteractionResponseType.MODAL,
-      data: {
-        custom_id: 'set_submit_modal',
-        title: 'Solicitar Set',
-        components: [
-          {
-            type: 1,
-            components: [
-              {
-                type: 4,
-                custom_id: 'nome_rp',
-                label: 'Nome no RP',
-                style: TextInputStyleTypes.SHORT,
-                required: true,
-                max_length: 100,
-              },
-            ],
-          },
-          {
-            type: 1,
-            components: [
-              {
-                type: 4,
-                custom_id: 'id_cidade',
-                label: 'ID da Cidade',
-                style: TextInputStyleTypes.SHORT,
-                required: true,
-                max_length: 20,
-              },
-            ],
-          },
-          {
-            type: 1,
-            components: [
-              {
-                type: 4,
-                custom_id: 'telefone',
-                label: 'Telefone',
-                style: TextInputStyleTypes.SHORT,
-                required: true,
-                max_length: 30,
-              },
-            ],
-          },
-          {
-            type: 1,
-            components: [
-              {
-                type: 4,
-                custom_id: 'indicacao',
-                label: 'Indicação / Quem chamou',
-                style: TextInputStyleTypes.PARAGRAPH,
-                required: true,
-                max_length: 200,
-              },
-            ],
-          },
-        ],
-      },
-    };
-  }
+  return {
+    type: 9,
+    data: {
+      custom_id: 'set_submit_modal',
+      title: 'Solicitar Set',
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'nome_rp',
+              label: 'Nome no RP',
+              style: 1,
+              required: true
+            }
+          ]
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'id_cidade',
+              label: 'ID da Cidade',
+              style: 1,
+              required: true
+            }
+          ]
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'telefone',
+              label: 'Telefone',
+              style: 1,
+              required: true
+            }
+          ]
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'indicacao',
+              label: 'Indicação / Quem chamou',
+              style: 2,
+              required: true
+            }
+          ]
+        }
+      ]
+    }
+  };
+}
 
   if (!isStaff(interaction)) {
     return ephemeral('❌ Você não possui permissão.');
