@@ -1,0 +1,19 @@
+{
+  "name": "bot-discord-gta-rp",
+  "version": "1.0.0",
+  "description": "Bot profissional para Discord GTA RP com recrutamento e farm, preparado para Vercel serverless.",
+  "main": "src/app.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node api/interactions.js",
+    "register": "node scripts/register-commands.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "discord-interactions": "^4.1.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
