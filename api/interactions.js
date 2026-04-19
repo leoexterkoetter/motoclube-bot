@@ -21,7 +21,6 @@ app.get('/', (_req, res) => {
 app.post(
   '/api/interactions',
   verifyKeyMiddleware(process.env.PUBLIC_KEY),
-  express.json(),
   async (req, res) => {
     try {
       const interaction = req.body;
