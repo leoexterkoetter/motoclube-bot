@@ -66,11 +66,15 @@ async function handleCriarFarmCommand(interaction) {
       return ephemeral('❌ Dados inválidos para criar a aba de farm.');
     }
 
-    const resolvedUser = interaction.data.resolved?.users?.[memberId];
-    const resolvedGuildMember = interaction.data.resolved?.members?.[memberId];
-    const displayName = resolvedGuildMember?.nick || resolvedUser?.username || 'membro';
-    const channelName = buildFarmChannelName(displayName, cityId);
+  const resolvedUser = interaction.data.resolved?.users?.[memberId];
+const resolvedGuildMember = interaction.data.resolved?.members?.[memberId];
 
+const rawDisplayName = resolvedGuildMember?.nick || resolvedUser?.username || 'membro';
+const displayName = String(rawDisplayName)
+  .split('|')[0]
+  .trim();
+
+const channelName = buildFarmChannelName(displayName, cityId);
     const channels = await fetchGuildChannels(process.env.GUILD_ID);
     const alreadyExists = channels.some((channel) => channel.name === channelName);
 

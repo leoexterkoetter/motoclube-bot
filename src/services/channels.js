@@ -14,6 +14,12 @@ async function editChannel(channelId, payload) {
   });
 }
 
+async function getChannel(channelId) {
+  return discordRequest(`/channels/${channelId}`, {
+    method: 'GET',
+  });
+}
+
 async function deleteChannel(channelId) {
   return discordRequest(`/channels/${channelId}`, {
     method: 'DELETE',
@@ -37,6 +43,7 @@ async function editMessage(channelId, messageId, payload) {
 module.exports = {
   createGuildChannel,
   editChannel,
+  getChannel,
   deleteChannel,
   sendChannelMessage,
   editMessage,
