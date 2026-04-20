@@ -8,8 +8,12 @@ async function updateFarmChannelTopic(channelId, state) {
   });
 }
 
-async function updateFarmMainMessage(interaction, state) {
-  return editMessage(interaction.channel_id, interaction.message.id, {
+async function updateFarmMainMessage(channelId, state) {
+  if (!state || !state.mainMessageId) {
+    throw new Error('mainMessageId não encontrado no estado da aba de farm.');
+  }
+
+  return editMessage(channelId, state.mainMessageId, {
     embeds: [buildFarmControlEmbed(state)],
   });
 }
