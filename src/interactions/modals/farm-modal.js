@@ -67,7 +67,7 @@ async function handleFarmModalSubmit(interaction) {
       );
       const motivo = getModalValue(interaction, 'motivo_meta') || 'Sem motivo informado.';
 
-      if (!novaMeta) {
+      if (!novaMeta || Number.isNaN(novaMeta)) {
         return ephemeral('❌ Informe uma meta válida.');
       }
 
@@ -84,15 +84,16 @@ async function handleFarmModalSubmit(interaction) {
         `💰 Meta atualizada por **${interaction.member.user.username}** — Nova meta: **${formatCurrency(novaMeta)}** — Motivo: ${motivo}`
       );
 
+      logSuccess(`Meta atualizada por ${interaction.member.user.username}`);
       return ephemeral('💰 Meta atualizada com sucesso.');
     }
 
     if (customId === 'farm_modal_add_note') {
-      const observacao = getModalValue(interaction, 'observacao_texto');
+      const observacao = getModalValue(interaction, 'observacao_texto') || 'Sem observações.';
 
       const nextState = {
         ...state,
-        observacao: observacao || 'Sem observações.',
+        observacao,
         atualizadoEm: new Date().toISOString(),
       };
 
@@ -103,6 +104,7 @@ async function handleFarmModalSubmit(interaction) {
         `📝 Observação atualizada por **${interaction.member.user.username}** — ${observacao}`
       );
 
+      logSuccess(`Observação atualizada por ${interaction.member.user.username}`);
       return ephemeral('📝 Observação atualizada com sucesso.');
     }
 
