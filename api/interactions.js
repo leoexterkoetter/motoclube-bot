@@ -33,11 +33,10 @@ app.post(
       return res.send(response);
     } catch (error) {
       logError('Erro ao processar interação.', error);
-
       return res.status(500).json({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-          content: '❌ Ocorreu um erro interno ao processar sua solicitação.',
+          content: '❌ Erro interno ao processar interação.',
           flags: 64,
         },
       });

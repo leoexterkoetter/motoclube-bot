@@ -4,18 +4,23 @@ const { handleComponentInteraction, handleModalSubmit } = require('./interaction
 const { ephemeral } = require('./utils/responses');
 
 async function handleInteraction(interaction) {
-  switch (interaction.type) {
-    case InteractionType.APPLICATION_COMMAND:
-      return handleCommand(interaction);
+  try {
+    switch (interaction.type) {
+      case InteractionType.APPLICATION_COMMAND:
+        return await handleCommand(interaction);
 
-    case InteractionType.MESSAGE_COMPONENT:
-      return handleComponentInteraction(interaction);
+      case InteractionType.MESSAGE_COMPONENT:
+        return await handleComponentInteraction(interaction);
 
-    case InteractionType.MODAL_SUBMIT:
-      return handleModalSubmit(interaction);
+      case InteractionType.MODAL_SUBMIT:
+        return await handleModalSubmit(interaction);
 
-    default:
-      return ephemeral('❌ Tipo de interação não suportado.');
+      default:
+        return ephemeral('❌ Tipo de interação não suportado.');
+    }
+  } catch (error) {
+    console.error('ERRO EM handleInteraction:', error);
+    return ephemeral('❌ Erro interno. Verifique os logs da Vercel.');
   }
 }
 
