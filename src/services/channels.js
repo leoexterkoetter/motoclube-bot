@@ -1,4 +1,4 @@
-const { ephemeral } = require('../../utils/responses');
+const { ephemeral } = require('../utils/responses');
 const { sendChannelMessage } = require('../../services/channels');
 const {
   buildSetRequestEmbed,
