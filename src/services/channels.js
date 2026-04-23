@@ -1,69 +1,50 @@
-const { ephemeral } = require('../utils/responses');
-const { sendChannelMessage } = require('../../services/channels');
-const {
-  buildSetRequestEmbed,
-  buildSetDecisionComponents,
-} = require('../../utils/embeds');
-const { serializeSetState } = require('../../utils/set-state');
-const { logSuccess, logError } = require('../../utils/logger');
+const { discordRequest } = require('./discord-rest');
 
-function getModalValue(interaction, customId) {
-  for (const row of interaction.data.components || []) {
-    for (const component of row.components || []) {
-      if (component.custom_id === customId) {
-        return component.value;
-      }
-    }
-  }
-  return '';
+async function createGuildChannel(guildId, payload) {
+  return discordRequest(`/guilds/${guildId}/channels`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
-async function handleSetModalSubmit(interaction) {
-  try {
-    const nomeRp = getModalValue(interaction, 'nome_rp');
-    const idCidade = getModalValue(interaction, 'id_cidade');
-    const telefone = getModalValue(interaction, 'telefone');
-    const indicacao = getModalValue(interaction, 'indicacao');
+async function editChannel(channelId, payload) {
+  return discordRequest(`/channels/${channelId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
 
-    if (!nomeRp || !idCidade || !telefone || !indicacao) {
-      return ephemeral('❌ Preencha todos os campos.');
-    }
+async function getChannel(channelId) {
+  return discordRequest(`/channels/${channelId}`, {
+    method: 'GET',
+  });
+}
 
-    if (!process.env.CANAL_SOLICITAR_SET) {
-      return ephemeral('❌ CANAL_SOLICITAR_SET não configurado.');
-    }
+async function deleteChannel(channelId) {
+  return discordRequest(`/channels/${channelId}`, {
+    method: 'DELETE',
+  });
+}
 
-    const state = {
-      userId: interaction.member.user.id,
-      discordName: interaction.member.user.username,
-      nomeRp,
-      idCidade,
-      telefone,
-      indicacao,
-      status: 'pending',
-      statusText: '⏳ Aguardando análise da staff',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+async function sendChannelMessage(channelId, payload) {
+  return discordRequest(`/channels/${channelId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
 
-    await sendChannelMessage(process.env.CANAL_SOLICITAR_SET, {
-      embeds: [
-        buildSetRequestEmbed({
-          ...state,
-          footerText: serializeSetState(state),
-        }),
-      ],
-      components: buildSetDecisionComponents(),
-    });
-
-    logSuccess('Solicitação recebida');
-    return ephemeral('✅ Cadastro enviado com sucesso.');
-  } catch (error) {
-    logError('Erro no modal de solicitar set.', error);
-    return ephemeral('❌ Erro ao enviar solicitação. Verifique os logs da Vercel.');
-  }
+async function editMessage(channelId, messageId, payload) {
+  return discordRequest(`/channels/${channelId}/messages/${messageId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
 }
 
 module.exports = {
-  handleSetModalSubmit,
+  createGuildChannel,
+  editChannel,
+  getChannel,
+  deleteChannel,
+  sendChannelMessage,
+  editMessage,
 };
