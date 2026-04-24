@@ -1,23 +1,14 @@
 const { InteractionResponseType } = require('discord-interactions');
 const { modal, ephemeral } = require('../../utils/responses');
 const { isStaff } = require('../../utils/permissions');
-const { getChannel, editChannel, deleteChannel } = require('../../services/channels');
+const { getChannel, deleteChannel } = require('../../services/channels');
 const { parseFarmState, resetFarmState } = require('../../utils/farm-state');
 const { updateFarm, logFarm } = require('../../utils/farm-actions');
-const { logSuccess, logError } = require('../../utils/logger');
+const { logError } = require('../../utils/logger');
 
-async function getFarmChannelAndState(channelId) {
+async function getFarmState(channelId) {
   const channel = await getChannel(channelId);
-  const state = parseFarmState(channel?.topic || '');
-  return { channel, state };
-}
-
-function cleanFarmChannelName(name) {
-  return String(name || 'farm')
-    .replace(/^🟢-/, '')
-    .replace(/^🔴-/, '')
-    .replace(/^✅-/, '')
-    .replace(/^❌-/, '');
+  return parseFarmState(channel?.topic || '');
 }
 
 function buildDeliveryModal() {
@@ -133,7 +124,7 @@ async function handleFarmButtonInteraction(interaction) {
     }
 
     if (customId === 'farm_reset_week') {
-      const { channel, state } = await getFarmChannelAndState(interaction.channel_id);
+      const state = await getFarmState(interaction.channel_id);
 
       if (!state.userId || !state.mainMessageId) {
         return ephemeral('❌ Dados da aba de farm não encontrados.');
@@ -147,18 +138,11 @@ async function handleFarmButtonInteraction(interaction) {
 
       await updateFarm(interaction.channel_id, nextState);
 
-      const baseName = cleanFarmChannelName(channel.name);
-
-      await editChannel(interaction.channel_id, {
-        name: `🔴-${baseName}`,
-      });
-
       await logFarm(
         interaction.channel_id,
         `♻️ Semana resetada por **${interaction.member.user.username}**.`
       );
 
-      logSuccess(`Semana resetada por ${interaction.member.user.username}`);
       return ephemeral('♻️ Semana resetada com sucesso.');
     }
 
