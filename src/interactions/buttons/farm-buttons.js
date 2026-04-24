@@ -124,26 +124,32 @@ async function handleFarmButtonInteraction(interaction) {
     }
 
     if (customId === 'farm_reset_week') {
-      const state = await getFarmStateFromChannel(interaction.channel_id);
+  const state = await getFarmStateFromChannel(interaction.channel_id);
 
-      if (!state.userId || !state.mainMessageId) {
-        return ephemeral('❌ Dados da aba de farm não encontrados.');
-      }
+  if (!state.userId || !state.mainMessageId) {
+    return ephemeral('❌ Dados da aba não encontrados.');
+  }
 
-      const nextState = resetFarmState({
-        ...state,
-        atualizadoEm: new Date().toISOString(),
-      });
+  const nextState = resetFarmState({
+    ...state,
+    atualizadoEm: new Date().toISOString(),
+  });
 
-      await updateFarm(interaction.channel_id, nextState);
-      await logFarm(
-        interaction.channel_id,
-        `♻️ Semana resetada por **${interaction.member.user.username}**.`
-      );
+  await updateFarm(interaction.channel_id, nextState);
 
-      logSuccess(`Semana resetada por ${interaction.member.user.username}`);
-      return ephemeral('♻️ Semana resetada com sucesso.');
-    }
+  const baseName = interaction.channel.name.replace(/^🟢-/, '').replace(/^🔴-/, '');
+
+  await require('../../services/channels').editChannel(interaction.channel_id, {
+    name: `🔴-${baseName}`,
+  });
+
+  await logFarm(
+    interaction.channel_id,
+    `♻️ Semana resetada por **${interaction.member.user.username}**.`
+  );
+
+  return ephemeral('♻️ Semana resetada com sucesso.');
+}
 
     if (customId === 'farm_delete_channel') {
       return {

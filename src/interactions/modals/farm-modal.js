@@ -40,29 +40,42 @@ async function handleFarmModalSubmit(interaction) {
     const customId = interaction.data.custom_id;
 
     if (customId === 'farm_modal_register_delivery') {
-      const valor = parseMoney(getModalValue(interaction, 'valor_entregue'));
-      const observacao = getModalValue(interaction, 'observacao_entrega') || 'Sem observação.';
+  const valor = parseMoney(getModalValue(interaction, 'valor_entregue'));
+  const observacao =
+    getModalValue(interaction, 'observacao_entrega') || 'Sem observação.';
 
-      if (!valor) {
-        return ephemeral('❌ Informe um valor válido.');
-      }
+  if (!valor) {
+    return ephemeral('❌ Informe um valor válido.');
+  }
 
-      const nextState = calculateFarmProgress({
-        ...state,
-        totalEntregue: Number(state.totalEntregue || 0) + valor,
-        atualizadoEm: new Date().toISOString(),
-      });
+  const nextState = calculateFarmProgress({
+    ...state,
+    totalEntregue: Number(state.totalEntregue || 0) + valor,
+    atualizadoEm: new Date().toISOString(),
+  });
 
-      await updateFarm(interaction.channel_id, nextState);
-      await logFarm(
-        interaction.channel_id,
-        `✅ Entrega registrada por **${interaction.member.user.username}** — Valor: **${formatCurrency(valor)}** — Observação: ${observacao}`
-      );
+  await updateFarm(interaction.channel_id, nextState);
 
-      logSuccess(`Entrega registrada por ${interaction.member.user.username}`);
-      return ephemeral('✅ Entrega registrada com sucesso.');
-    }
+  // ALTERA NOME DO CANAL
+  const baseName = interaction.channel.name.replace(/^🟢-/, '').replace(/^🔴-/, '');
 
+  if (nextState.status === 'Meta batida') {
+    await require('../../services/channels').editChannel(interaction.channel_id, {
+      name: `🟢-${baseName}`,
+    });
+  } else {
+    await require('../../services/channels').editChannel(interaction.channel_id, {
+      name: `🔴-${baseName}`,
+    });
+  }
+
+  await logFarm(
+    interaction.channel_id,
+    `✅ Entrega registrada por **${interaction.member.user.username}** — Valor: **${formatCurrency(valor)}** — Observação: ${observacao}`
+  );
+
+  return ephemeral('✅ Entrega registrada com sucesso.');
+}
     if (customId === 'farm_modal_update_goal') {
       const novaMeta = parseMoney(getModalValue(interaction, 'nova_meta'));
       const motivo = getModalValue(interaction, 'motivo_meta') || 'Sem motivo informado.';
