@@ -1,14 +1,23 @@
 const { InteractionResponseType } = require('discord-interactions');
 const { modal, ephemeral } = require('../../utils/responses');
 const { isStaff } = require('../../utils/permissions');
-const { getChannel, deleteChannel } = require('../../services/channels');
+const { getChannel, editChannel, deleteChannel } = require('../../services/channels');
 const { parseFarmState, resetFarmState } = require('../../utils/farm-state');
 const { updateFarm, logFarm } = require('../../utils/farm-actions');
 const { logSuccess, logError } = require('../../utils/logger');
 
-async function getFarmStateFromChannel(channelId) {
+async function getFarmChannelAndState(channelId) {
   const channel = await getChannel(channelId);
-  return parseFarmState(channel?.topic || '');
+  const state = parseFarmState(channel?.topic || '');
+  return { channel, state };
+}
+
+function cleanFarmChannelName(name) {
+  return String(name || 'farm')
+    .replace(/^🟢-/, '')
+    .replace(/^🔴-/, '')
+    .replace(/^✅-/, '')
+    .replace(/^❌-/, '');
 }
 
 function buildDeliveryModal() {
@@ -124,32 +133,34 @@ async function handleFarmButtonInteraction(interaction) {
     }
 
     if (customId === 'farm_reset_week') {
-  const state = await getFarmStateFromChannel(interaction.channel_id);
+      const { channel, state } = await getFarmChannelAndState(interaction.channel_id);
 
-  if (!state.userId || !state.mainMessageId) {
-    return ephemeral('❌ Dados da aba não encontrados.');
-  }
+      if (!state.userId || !state.mainMessageId) {
+        return ephemeral('❌ Dados da aba de farm não encontrados.');
+      }
 
-  const nextState = resetFarmState({
-    ...state,
-    atualizadoEm: new Date().toISOString(),
-  });
+      const nextState = resetFarmState({
+        ...state,
+        totalEntregue: 0,
+        atualizadoEm: new Date().toISOString(),
+      });
 
-  await updateFarm(interaction.channel_id, nextState);
+      await updateFarm(interaction.channel_id, nextState);
 
-  const baseName = interaction.channel.name.replace(/^🟢-/, '').replace(/^🔴-/, '');
+      const baseName = cleanFarmChannelName(channel.name);
 
-  await require('../../services/channels').editChannel(interaction.channel_id, {
-    name: `🔴-${baseName}`,
-  });
+      await editChannel(interaction.channel_id, {
+        name: `🔴-${baseName}`,
+      });
 
-  await logFarm(
-    interaction.channel_id,
-    `♻️ Semana resetada por **${interaction.member.user.username}**.`
-  );
+      await logFarm(
+        interaction.channel_id,
+        `♻️ Semana resetada por **${interaction.member.user.username}**.`
+      );
 
-  return ephemeral('♻️ Semana resetada com sucesso.');
-}
+      logSuccess(`Semana resetada por ${interaction.member.user.username}`);
+      return ephemeral('♻️ Semana resetada com sucesso.');
+    }
 
     if (customId === 'farm_delete_channel') {
       return {
@@ -177,6 +188,7 @@ async function handleFarmButtonInteraction(interaction) {
 
     if (customId === 'farm_confirm_delete_channel') {
       await deleteChannel(interaction.channel_id);
+
       return {
         type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
       };
@@ -185,7 +197,7 @@ async function handleFarmButtonInteraction(interaction) {
     return ephemeral('⚠️ Ação de farm não reconhecida.');
   } catch (error) {
     logError('Erro em botão de farm', error);
-    return ephemeral('❌ Erro ao processar ação de farm.');
+    return ephemeral('❌ Erro ao processar ação de farm. Verifique os logs da Vercel.');
   }
 }
 
