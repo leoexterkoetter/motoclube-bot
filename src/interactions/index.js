@@ -1,8 +1,9 @@
-const { ephemeral } = require('../utils/responses');
 const { handleSetButtonInteraction } = require('./buttons/set-buttons');
 const { handleFarmButtonInteraction } = require('./buttons/farm-buttons');
 const { handleSetModalSubmit } = require('./modals/set-modal');
 const { handleFarmModalSubmit } = require('./modals/farm-modal');
+const { ephemeral } = require('../utils/responses');
+const { logError } = require('../utils/logger');
 
 async function handleComponentInteraction(interaction) {
   try {
@@ -16,10 +17,10 @@ async function handleComponentInteraction(interaction) {
       return await handleFarmButtonInteraction(interaction);
     }
 
-    return ephemeral('⚠️ Este botão ainda não foi implementado.');
+    return ephemeral('⚠️ Botão não reconhecido.');
   } catch (error) {
-    console.error('ERRO EM handleComponentInteraction:', error);
-    return ephemeral('❌ Erro ao processar botão. Verifique os logs da Vercel.');
+    logError('Erro em botão', error);
+    return ephemeral('❌ Erro ao processar botão.');
   }
 }
 
@@ -35,10 +36,10 @@ async function handleModalSubmit(interaction) {
       return await handleFarmModalSubmit(interaction);
     }
 
-    return ephemeral('⚠️ Este modal ainda não foi implementado.');
+    return ephemeral('⚠️ Modal não reconhecido.');
   } catch (error) {
-    console.error('ERRO EM handleModalSubmit:', error);
-    return ephemeral('❌ Erro ao processar formulário. Verifique os logs da Vercel.');
+    logError('Erro em modal', error);
+    return ephemeral('❌ Erro ao processar formulário.');
   }
 }
 

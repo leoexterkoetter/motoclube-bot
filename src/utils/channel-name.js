@@ -12,6 +12,7 @@ function sanitizeChannelName(value) {
 function buildFarmChannelName(name, cityId) {
   const safeName = sanitizeChannelName(name);
   const safeId = String(cityId).replace(/[^0-9]/g, '');
+
   return `${safeName}-${safeId}`;
 }
 

@@ -1,11 +1,7 @@
-const {
-  MessageComponentTypes,
-  ButtonStyleTypes,
-} = require('discord-interactions');
 const { isStaff } = require('../utils/permissions');
 const { ephemeral } = require('../utils/responses');
-const { buildSetPanelEmbed } = require('../utils/embeds');
 const { sendChannelMessage } = require('../services/channels');
+const { buildSetPanelEmbed, buildSetPanelComponents } = require('../utils/embeds');
 const { logSuccess } = require('../utils/logger');
 
 async function handlePainelSetCommand(interaction) {
@@ -13,33 +9,16 @@ async function handlePainelSetCommand(interaction) {
     return ephemeral('❌ Você não possui permissão para usar este comando.');
   }
 
-  const channelId = process.env.CANAL_SOLICITAR_SET;
-
-  if (!channelId) {
-    return ephemeral('❌ A variável CANAL_SOLICITAR_SET não está configurada.');
+  if (!process.env.CANAL_SOLICITAR_SET) {
+    return ephemeral('❌ CANAL_SOLICITAR_SET não configurado na Vercel.');
   }
 
-  await sendChannelMessage(channelId, {
+  await sendChannelMessage(process.env.CANAL_SOLICITAR_SET, {
     embeds: [buildSetPanelEmbed()],
-    components: [
-      {
-        type: 1,
-        components: [
-          {
-            type: MessageComponentTypes.BUTTON,
-            style: ButtonStyleTypes.PRIMARY,
-            custom_id: 'set_open_modal',
-            label: 'Solicitar Set',
-            emoji: {
-              name: '📝',
-            },
-          },
-        ],
-      },
-    ],
+    components: buildSetPanelComponents(),
   });
 
-  logSuccess('Painel enviado');
+  logSuccess(`Painel de set enviado por ${interaction.member.user.username}`);
   return ephemeral('✅ Painel enviado com sucesso.');
 }
 

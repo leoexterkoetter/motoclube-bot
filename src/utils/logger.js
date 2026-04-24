@@ -12,18 +12,16 @@ function logInfo(message) {
   console.log(`ℹ️ [${timestamp()}] ${message}`);
 }
 
-function logWarn(message) {
-  console.warn(`⚠️ [${timestamp()}] ${message}`);
-}
-
 function logError(message, error) {
   console.error(`❌ [${timestamp()}] ${message}`);
-  if (error) console.error(error);
+
+  if (error) {
+    console.error(error);
+  }
 }
 
 module.exports = {
   logSuccess,
   logInfo,
-  logWarn,
   logError,
 };

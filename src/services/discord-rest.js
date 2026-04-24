@@ -11,8 +11,8 @@ async function discordRequest(path, options = {}) {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Discord API error ${response.status}: ${errorText}`);
+    const text = await response.text();
+    throw new Error(`Discord API ${response.status}: ${text}`);
   }
 
   if (response.status === 204) {

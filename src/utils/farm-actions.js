@@ -1,29 +1,37 @@
 const { editChannel, editMessage, sendChannelMessage } = require('../services/channels');
 const { serializeFarmState } = require('./farm-state');
-const { buildFarmControlEmbed } = require('./embeds');
+const { buildFarmEmbed } = require('./embeds');
 
-async function updateFarmChannelTopic(channelId, state) {
+async function saveFarmState(channelId, state) {
   return editChannel(channelId, {
     topic: serializeFarmState(state),
   });
 }
 
-async function updateFarmMainMessage(channelId, state) {
-  if (!state || !state.mainMessageId) {
-    throw new Error('mainMessageId não encontrado no estado da aba de farm.');
+async function updateFarmEmbed(channelId, state) {
+  if (!state.mainMessageId) {
+    throw new Error('mainMessageId não encontrado no estado da farm.');
   }
 
   return editMessage(channelId, state.mainMessageId, {
-    embeds: [buildFarmControlEmbed(state)],
+    embeds: [buildFarmEmbed(state)],
   });
 }
 
-async function postFarmLog(channelId, content) {
-  return sendChannelMessage(channelId, { content });
+async function updateFarm(channelId, state) {
+  await saveFarmState(channelId, state);
+  await updateFarmEmbed(channelId, state);
+}
+
+async function logFarm(channelId, content) {
+  return sendChannelMessage(channelId, {
+    content,
+  });
 }
 
 module.exports = {
-  updateFarmChannelTopic,
-  updateFarmMainMessage,
-  postFarmLog,
+  saveFarmState,
+  updateFarmEmbed,
+  updateFarm,
+  logFarm,
 };

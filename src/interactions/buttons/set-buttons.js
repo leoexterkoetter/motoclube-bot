@@ -1,221 +1,188 @@
-const {
-  InteractionResponseType,
-  MessageComponentTypes,
-  ButtonStyleTypes,
-  TextInputStyleTypes,
-} = require('discord-interactions');
+const { modal, ephemeral } = require('../../utils/responses');
 const { isStaff } = require('../../utils/permissions');
-const { ephemeral } = require('../../utils/responses');
-const { editGuildMember, addGuildMemberRole } = require('../../services/members');
-const { editMessage } = require('../../services/channels');
-const { sendUserDm } = require('../../services/users');
 const { parseSetState, serializeSetState } = require('../../utils/set-state');
-const { buildSetRequestEmbed, buildSetDecisionComponents } = require('../../utils/embeds');
-const { logSuccess } = require('../../utils/logger');
+const {
+  buildSetRequestEmbed,
+  buildSetDecisionComponents,
+} = require('../../utils/embeds');
+const { editMessage } = require('../../services/channels');
+const { editGuildMember, addGuildMemberRole } = require('../../services/members');
+const { sendUserDm } = require('../../services/users');
+const { logSuccess, logError } = require('../../utils/logger');
 
-function getStateFromMessage(interaction) {
+function getSetState(interaction) {
   const footerText = interaction.message?.embeds?.[0]?.footer?.text || '';
   return parseSetState(footerText);
 }
 
-function buildDisabledComponents() {
-  return [
-    {
-      type: 1,
-      components: [
-        {
-          type: MessageComponentTypes.BUTTON,
-          style: ButtonStyleTypes.SUCCESS,
-          custom_id: 'set_approve_done',
-          label: 'Aprovar',
-          disabled: true,
-          emoji: { name: '✅' },
-        },
-        {
-          type: MessageComponentTypes.BUTTON,
-          style: ButtonStyleTypes.DANGER,
-          custom_id: 'set_reject_done',
-          label: 'Recusar',
-          disabled: true,
-          emoji: { name: '❌' },
-        },
-        {
-          type: MessageComponentTypes.BUTTON,
-          style: ButtonStyleTypes.SECONDARY,
-          custom_id: 'set_review_done',
-          label: 'Revisar',
-          disabled: true,
-          emoji: { name: '🛠' },
-        },
-      ],
-    },
-  ];
+function buildSetModal() {
+  return modal({
+    custom_id: 'set_submit_modal',
+    title: 'Solicitar Set',
+    components: [
+      {
+        type: 1,
+        components: [
+          {
+            type: 4,
+            custom_id: 'nome_rp',
+            label: 'Nome no RP',
+            style: 1,
+            required: true,
+            max_length: 100,
+          },
+        ],
+      },
+      {
+        type: 1,
+        components: [
+          {
+            type: 4,
+            custom_id: 'id_cidade',
+            label: 'ID da Cidade',
+            style: 1,
+            required: true,
+            max_length: 20,
+          },
+        ],
+      },
+      {
+        type: 1,
+        components: [
+          {
+            type: 4,
+            custom_id: 'telefone',
+            label: 'Telefone',
+            style: 1,
+            required: true,
+            max_length: 30,
+          },
+        ],
+      },
+      {
+        type: 1,
+        components: [
+          {
+            type: 4,
+            custom_id: 'indicacao',
+            label: 'Indicação / Quem chamou',
+            style: 2,
+            required: true,
+            max_length: 200,
+          },
+        ],
+      },
+    ],
+  });
 }
 
 async function handleSetButtonInteraction(interaction) {
   const customId = interaction.data.custom_id;
 
   if (customId === 'set_open_modal') {
-  return {
-    type: 9,
-    data: {
-      custom_id: 'set_submit_modal',
-      title: 'Solicitar Set',
-      components: [
-        {
-          type: 1,
-          components: [
-            {
-              type: 4,
-              custom_id: 'nome_rp',
-              label: 'Nome no RP',
-              style: 1,
-              required: true
-            }
-          ]
-        },
-        {
-          type: 1,
-          components: [
-            {
-              type: 4,
-              custom_id: 'id_cidade',
-              label: 'ID da Cidade',
-              style: 1,
-              required: true
-            }
-          ]
-        },
-        {
-          type: 1,
-          components: [
-            {
-              type: 4,
-              custom_id: 'telefone',
-              label: 'Telefone',
-              style: 1,
-              required: true
-            }
-          ]
-        },
-        {
-          type: 1,
-          components: [
-            {
-              type: 4,
-              custom_id: 'indicacao',
-              label: 'Indicação / Quem chamou',
-              style: 2,
-              required: true
-            }
-          ]
-        }
-      ]
-    }
-  };
-}
+    return buildSetModal();
+  }
 
   if (!isStaff(interaction)) {
     return ephemeral('❌ Você não possui permissão.');
   }
 
-  const state = getStateFromMessage(interaction);
+  const state = getSetState(interaction);
 
   if (!state.userId) {
-    return ephemeral('❌ Não foi possível localizar os dados da solicitação.');
+    return ephemeral('❌ Dados da solicitação não encontrados.');
   }
 
   if (customId === 'set_review') {
     const nextState = {
       ...state,
       status: 'review',
-      statusText: `🛠 Em análise por ${interaction.member.user.username}`,
-      reviewedBy: interaction.member.user.username,
+      statusText: `🛠️ Em análise por ${interaction.member.user.username}`,
       updatedAt: new Date().toISOString(),
     };
 
-    await editMessage(interaction.channel_id, interaction.message.id, {
-      embeds: [
-        buildSetRequestEmbed({
-          ...nextState,
-          footerText: serializeSetState(nextState),
-        }),
-      ],
-      components: buildSetDecisionComponents(),
-    });
-
-    return ephemeral('🛠 Solicitação marcada como em análise.');
-  }
-
-  if (customId === 'set_approve') {
-    const nickname = `${state.nomeRp} | ${state.idCidade}`.slice(0, 32);
-
-    await editGuildMember(process.env.GUILD_ID, state.userId, {
-      nick: nickname,
-    });
-
-    if (process.env.CARGO_RECRUTA) {
-      await addGuildMemberRole(process.env.GUILD_ID, state.userId, process.env.CARGO_RECRUTA);
-    }
-
-    if (process.env.CARGO_MEMBRO) {
-      await addGuildMemberRole(process.env.GUILD_ID, state.userId, process.env.CARGO_MEMBRO);
-    }
-
-    const nextState = {
-      ...state,
-      status: 'approved',
-      statusText: `✅ Solicitação aprovada por ${interaction.member.user.username}`,
-      approvedBy: interaction.member.user.username,
-      updatedAt: new Date().toISOString(),
-    };
+    nextState.footerText = serializeSetState(nextState);
 
     await editMessage(interaction.channel_id, interaction.message.id, {
-      embeds: [
-        buildSetRequestEmbed({
-          ...nextState,
-          footerText: serializeSetState(nextState),
-        }),
-      ],
-      components: buildDisabledComponents(),
+      embeds: [buildSetRequestEmbed(nextState)],
+      components: buildSetDecisionComponents(false),
     });
 
-    try {
-      await sendUserDm(state.userId, 'Parabéns! Seu set foi aprovado.');
-    } catch (_error) {}
-
-    logSuccess(`Aprovado por ${interaction.member.user.username}`);
-    return ephemeral('✅ Solicitação aprovada com sucesso.');
+    return ephemeral('🛠️ Solicitação marcada como em análise.');
   }
 
   if (customId === 'set_reject') {
     const nextState = {
       ...state,
       status: 'rejected',
-      statusText: `❌ Solicitação recusada por ${interaction.member.user.username}`,
-      rejectedBy: interaction.member.user.username,
+      statusText: `❌ Recusado por ${interaction.member.user.username}`,
       updatedAt: new Date().toISOString(),
     };
 
+    nextState.footerText = serializeSetState(nextState);
+
     await editMessage(interaction.channel_id, interaction.message.id, {
-      embeds: [
-        buildSetRequestEmbed({
-          ...nextState,
-          footerText: serializeSetState(nextState),
-        }),
-      ],
-      components: buildDisabledComponents(),
+      embeds: [buildSetRequestEmbed(nextState)],
+      components: buildSetDecisionComponents(true),
     });
 
     try {
       await sendUserDm(state.userId, 'Sua solicitação foi recusada.');
-    } catch (_error) {}
+    } catch (error) {
+      logError('Não foi possível enviar DM de recusa', error);
+    }
 
-    logSuccess(`Recusado por ${interaction.member.user.username}`);
-    return ephemeral('❌ Solicitação recusada com sucesso.');
+    logSuccess(`Solicitação recusada por ${interaction.member.user.username}`);
+    return ephemeral('❌ Solicitação recusada.');
   }
 
-  return ephemeral('⚠️ Ação não reconhecida.');
+  if (customId === 'set_approve') {
+    try {
+      const nickname = `${state.nomeRp} | ${state.idCidade}`.slice(0, 32);
+
+      await editGuildMember(process.env.GUILD_ID, state.userId, {
+        nick: nickname,
+      });
+
+      if (process.env.CARGO_RECRUTA) {
+        await addGuildMemberRole(process.env.GUILD_ID, state.userId, process.env.CARGO_RECRUTA);
+      }
+
+      if (process.env.CARGO_MEMBRO) {
+        await addGuildMemberRole(process.env.GUILD_ID, state.userId, process.env.CARGO_MEMBRO);
+      }
+
+      const nextState = {
+        ...state,
+        status: 'approved',
+        statusText: `✅ Aprovado por ${interaction.member.user.username}`,
+        updatedAt: new Date().toISOString(),
+      };
+
+      nextState.footerText = serializeSetState(nextState);
+
+      await editMessage(interaction.channel_id, interaction.message.id, {
+        embeds: [buildSetRequestEmbed(nextState)],
+        components: buildSetDecisionComponents(true),
+      });
+
+      try {
+        await sendUserDm(state.userId, 'Parabéns! Seu set foi aprovado.');
+      } catch (error) {
+        logError('Não foi possível enviar DM de aprovação', error);
+      }
+
+      logSuccess(`Solicitação aprovada por ${interaction.member.user.username}`);
+      return ephemeral('✅ Solicitação aprovada.');
+    } catch (error) {
+      logError('Erro ao aprovar set', error);
+      return ephemeral(
+        '❌ Erro ao aprovar. Verifique permissões do bot, hierarquia de cargos e IDs dos cargos.'
+      );
+    }
+  }
+
+  return ephemeral('⚠️ Ação de set não reconhecida.');
 }
 
 module.exports = {

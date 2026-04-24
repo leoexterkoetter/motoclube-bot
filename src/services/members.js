@@ -13,14 +13,7 @@ async function addGuildMemberRole(guildId, userId, roleId) {
   });
 }
 
-async function removeGuildMemberRole(guildId, userId, roleId) {
-  return discordRequest(`/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
-    method: 'DELETE',
-  });
-}
-
 module.exports = {
   editGuildMember,
   addGuildMemberRole,
-  removeGuildMemberRole,
 };

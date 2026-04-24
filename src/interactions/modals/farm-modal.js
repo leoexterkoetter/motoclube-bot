@@ -1,15 +1,11 @@
 const { ephemeral } = require('../../utils/responses');
+const { getChannel } = require('../../services/channels');
 const {
   parseFarmState,
   calculateFarmProgress,
-  formatCurrency,
 } = require('../../utils/farm-state');
-const {
-  updateFarmMainMessage,
-  updateFarmChannelTopic,
-  postFarmLog,
-} = require('../../utils/farm-actions');
-const { getChannel } = require('../../services/channels');
+const { formatCurrency } = require('../../utils/embeds');
+const { updateFarm, logFarm } = require('../../utils/farm-actions');
 const { logSuccess, logError } = require('../../utils/logger');
 
 function getModalValue(interaction, customId) {
@@ -20,28 +16,35 @@ function getModalValue(interaction, customId) {
       }
     }
   }
+
   return '';
+}
+
+function parseMoney(value) {
+  return Number(String(value || '').replace(/[^0-9]/g, ''));
+}
+
+async function getFarmState(channelId) {
+  const channel = await getChannel(channelId);
+  return parseFarmState(channel?.topic || '');
 }
 
 async function handleFarmModalSubmit(interaction) {
   try {
-    const channel = await getChannel(interaction.channel_id);
-    const state = parseFarmState(channel?.topic || '');
+    const state = await getFarmState(interaction.channel_id);
 
-    if (!state.userId) {
-      return ephemeral('❌ Não foi possível localizar os dados da aba.');
+    if (!state.userId || !state.mainMessageId) {
+      return ephemeral('❌ Dados da aba de farm não encontrados.');
     }
 
     const customId = interaction.data.custom_id;
 
     if (customId === 'farm_modal_register_delivery') {
-      const valor = Number(
-        String(getModalValue(interaction, 'valor_entregue')).replace(/[^0-9]/g, '')
-      );
+      const valor = parseMoney(getModalValue(interaction, 'valor_entregue'));
       const observacao = getModalValue(interaction, 'observacao_entrega') || 'Sem observação.';
 
       if (!valor) {
-        return ephemeral('❌ Informe um valor válido para a entrega.');
+        return ephemeral('❌ Informe um valor válido.');
       }
 
       const nextState = calculateFarmProgress({
@@ -50,9 +53,8 @@ async function handleFarmModalSubmit(interaction) {
         atualizadoEm: new Date().toISOString(),
       });
 
-      await updateFarmChannelTopic(interaction.channel_id, nextState);
-      await updateFarmMainMessage(interaction.channel_id, nextState);
-      await postFarmLog(
+      await updateFarm(interaction.channel_id, nextState);
+      await logFarm(
         interaction.channel_id,
         `✅ Entrega registrada por **${interaction.member.user.username}** — Valor: **${formatCurrency(valor)}** — Observação: ${observacao}`
       );
@@ -62,12 +64,10 @@ async function handleFarmModalSubmit(interaction) {
     }
 
     if (customId === 'farm_modal_update_goal') {
-      const novaMeta = Number(
-        String(getModalValue(interaction, 'nova_meta')).replace(/[^0-9]/g, '')
-      );
+      const novaMeta = parseMoney(getModalValue(interaction, 'nova_meta'));
       const motivo = getModalValue(interaction, 'motivo_meta') || 'Sem motivo informado.';
 
-      if (!novaMeta || Number.isNaN(novaMeta)) {
+      if (!novaMeta) {
         return ephemeral('❌ Informe uma meta válida.');
       }
 
@@ -77,9 +77,8 @@ async function handleFarmModalSubmit(interaction) {
         atualizadoEm: new Date().toISOString(),
       });
 
-      await updateFarmChannelTopic(interaction.channel_id, nextState);
-      await updateFarmMainMessage(interaction.channel_id, nextState);
-      await postFarmLog(
+      await updateFarm(interaction.channel_id, nextState);
+      await logFarm(
         interaction.channel_id,
         `💰 Meta atualizada por **${interaction.member.user.username}** — Nova meta: **${formatCurrency(novaMeta)}** — Motivo: ${motivo}`
       );
@@ -97,9 +96,8 @@ async function handleFarmModalSubmit(interaction) {
         atualizadoEm: new Date().toISOString(),
       };
 
-      await updateFarmChannelTopic(interaction.channel_id, nextState);
-      await updateFarmMainMessage(interaction.channel_id, nextState);
-      await postFarmLog(
+      await updateFarm(interaction.channel_id, nextState);
+      await logFarm(
         interaction.channel_id,
         `📝 Observação atualizada por **${interaction.member.user.username}** — ${observacao}`
       );
@@ -110,8 +108,8 @@ async function handleFarmModalSubmit(interaction) {
 
     return ephemeral('⚠️ Modal de farm não reconhecido.');
   } catch (error) {
-    logError('Erro no modal de farm.', error);
-    return ephemeral('❌ Erro ao processar formulário. Verifique os logs da Vercel.');
+    logError('Erro em modal de farm', error);
+    return ephemeral('❌ Erro ao processar formulário de farm.');
   }
 }
 

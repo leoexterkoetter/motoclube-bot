@@ -1,8 +1,11 @@
 const { ephemeral } = require('../../utils/responses');
 const { sendChannelMessage } = require('../../services/channels');
-const { buildSetRequestEmbed, buildSetDecisionComponents } = require('../../utils/embeds');
+const {
+  buildSetRequestEmbed,
+  buildSetDecisionComponents,
+} = require('../../utils/embeds');
 const { serializeSetState } = require('../../utils/set-state');
-const { logSuccess } = require('../../utils/logger');
+const { logSuccess, logError } = require('../../utils/logger');
 
 function getModalValue(interaction, customId) {
   for (const row of interaction.data.components || []) {
@@ -12,40 +15,51 @@ function getModalValue(interaction, customId) {
       }
     }
   }
+
   return '';
 }
 
 async function handleSetModalSubmit(interaction) {
-  const nomeRp = getModalValue(interaction, 'nome_rp');
-  const idCidade = getModalValue(interaction, 'id_cidade');
-  const telefone = getModalValue(interaction, 'telefone');
-  const indicacao = getModalValue(interaction, 'indicacao');
+  try {
+    const nomeRp = getModalValue(interaction, 'nome_rp');
+    const idCidade = getModalValue(interaction, 'id_cidade');
+    const telefone = getModalValue(interaction, 'telefone');
+    const indicacao = getModalValue(interaction, 'indicacao');
 
-  const state = {
-    userId: interaction.member.user.id,
-    discordName: interaction.member.user.username,
-    nomeRp,
-    idCidade,
-    telefone,
-    indicacao,
-    status: 'pending',
-    statusText: '⏳ Aguardando análise da staff',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+    if (!nomeRp || !idCidade || !telefone || !indicacao) {
+      return ephemeral('❌ Preencha todos os campos.');
+    }
 
-  await sendChannelMessage(process.env.CANAL_SOLICITAR_SET, {
-    embeds: [
-      buildSetRequestEmbed({
-        ...state,
-        footerText: serializeSetState(state),
-      }),
-    ],
-    components: buildSetDecisionComponents(),
-  });
+    if (!process.env.CANAL_SOLICITAR_SET) {
+      return ephemeral('❌ CANAL_SOLICITAR_SET não configurado.');
+    }
 
-  logSuccess('Solicitação recebida');
-  return ephemeral('✅ Cadastro enviado com sucesso.');
+    const state = {
+      userId: interaction.member.user.id,
+      discordName: interaction.member.user.username,
+      nomeRp,
+      idCidade,
+      telefone,
+      indicacao,
+      status: 'pending',
+      statusText: '⏳ Aguardando análise da staff',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    state.footerText = serializeSetState(state);
+
+    await sendChannelMessage(process.env.CANAL_SOLICITAR_SET, {
+      embeds: [buildSetRequestEmbed(state)],
+      components: buildSetDecisionComponents(false),
+    });
+
+    logSuccess(`Solicitação de set recebida: ${nomeRp} | ${idCidade}`);
+    return ephemeral('✅ Cadastro enviado com sucesso.');
+  } catch (error) {
+    logError('Erro no modal de set', error);
+    return ephemeral('❌ Erro ao enviar solicitação. Verifique os logs da Vercel.');
+  }
 }
 
 module.exports = {

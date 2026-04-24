@@ -7,16 +7,16 @@ async function createGuildChannel(guildId, payload) {
   });
 }
 
+async function getChannel(channelId) {
+  return discordRequest(`/channels/${channelId}`, {
+    method: 'GET',
+  });
+}
+
 async function editChannel(channelId, payload) {
   return discordRequest(`/channels/${channelId}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
-  });
-}
-
-async function getChannel(channelId) {
-  return discordRequest(`/channels/${channelId}`, {
-    method: 'GET',
   });
 }
 
@@ -42,8 +42,8 @@ async function editMessage(channelId, messageId, payload) {
 
 module.exports = {
   createGuildChannel,
-  editChannel,
   getChannel,
+  editChannel,
   deleteChannel,
   sendChannelMessage,
   editMessage,

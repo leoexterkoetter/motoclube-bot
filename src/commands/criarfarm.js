@@ -1,30 +1,32 @@
 const {
-  InteractionResponseType,
   ChannelTypes,
   MessageComponentTypes,
   ButtonStyleTypes,
 } = require('discord-interactions');
+
 const { isStaff, getStaffRoleIds } = require('../utils/permissions');
 const { ephemeral } = require('../utils/responses');
 const { buildFarmChannelName } = require('../utils/channel-name');
-const { createGuildChannel, sendChannelMessage, editChannel } = require('../services/channels');
 const { fetchGuildChannels } = require('../services/guild');
-const { buildFarmControlEmbed } = require('../utils/embeds');
-const { serializeFarmState, calculateFarmProgress } = require('../utils/farm-state');
+const { createGuildChannel, sendChannelMessage, editChannel } = require('../services/channels');
+const { buildFarmEmbed, buildFarmComponents } = require('../utils/embeds');
+const {
+  createFarmState,
+  serializeFarmState,
+} = require('../utils/farm-state');
 const { logSuccess, logError } = require('../utils/logger');
 
-// Permissões do Discord em bigint/string
 const PERMISSIONS = {
   VIEW_CHANNEL: 1024n,
   SEND_MESSAGES: 2048n,
   READ_MESSAGE_HISTORY: 65536n,
 };
 
-function allowChannelBasic() {
+function allowBasicChannel() {
   return String(
     PERMISSIONS.VIEW_CHANNEL |
-    PERMISSIONS.SEND_MESSAGES |
-    PERMISSIONS.READ_MESSAGE_HISTORY
+      PERMISSIONS.SEND_MESSAGES |
+      PERMISSIONS.READ_MESSAGE_HISTORY
   );
 }
 
@@ -36,14 +38,38 @@ function getOption(interaction, name) {
   return interaction.data.options?.find((option) => option.name === name)?.value;
 }
 
-function buildStaffPermissionOverwrites() {
-  const staffRoleIds = getStaffRoleIds();
+function getCleanName(rawName, cityId) {
+  let name = String(rawName || 'membro');
 
-  return staffRoleIds.map((roleId) => ({
-    id: roleId,
-    type: 0,
-    allow: allowChannelBasic(),
-  }));
+  if (name.includes('|')) {
+    name = name.split('|')[0].trim();
+  }
+
+  name = name.replace(String(cityId), '').trim();
+
+  return name || 'membro';
+}
+
+function buildPermissionOverwrites(memberId) {
+  const staffRoles = getStaffRoleIds();
+
+  return [
+    {
+      id: process.env.GUILD_ID,
+      type: 0,
+      deny: denyViewChannel(),
+    },
+    ...staffRoles.map((roleId) => ({
+      id: roleId,
+      type: 0,
+      allow: allowBasicChannel(),
+    })),
+    {
+      id: memberId,
+      type: 1,
+      allow: allowBasicChannel(),
+    },
+  ];
 }
 
 async function handleCriarFarmCommand(interaction) {
@@ -53,153 +79,78 @@ async function handleCriarFarmCommand(interaction) {
     }
 
     const memberId = getOption(interaction, 'membro');
-    const cityId = String(getOption(interaction, 'id_cidade') || '');
+    const cityId = String(getOption(interaction, 'id_cidade') || '').trim();
     const metaSemanal = Number(getOption(interaction, 'meta_semanal') || 0);
     const observacao = getOption(interaction, 'observacao') || 'Sem observações iniciais.';
 
-    console.log('CRIARFARM memberId:', memberId);
-    console.log('CRIARFARM cityId:', cityId);
-    console.log('CRIARFARM metaSemanal:', metaSemanal);
-    console.log('CRIARFARM categoria:', process.env.CATEGORIA_FARM);
-
     if (!memberId || !cityId || !metaSemanal) {
-      return ephemeral('❌ Dados inválidos para criar a aba de farm.');
+      return ephemeral('❌ Dados inválidos. Informe membro, ID e meta semanal.');
     }
 
-  const resolvedUser = interaction.data.resolved?.users?.[memberId];
-const resolvedGuildMember = interaction.data.resolved?.members?.[memberId];
+    const resolvedUser = interaction.data.resolved?.users?.[memberId];
+    const resolvedMember = interaction.data.resolved?.members?.[memberId];
 
-const rawDisplayName = resolvedGuildMember?.nick || resolvedUser?.username || 'membro';
-const displayName = String(rawDisplayName)
-  .split('|')[0]
-  .trim();
+    const displayName = getCleanName(
+      resolvedMember?.nick || resolvedUser?.username || 'membro',
+      cityId
+    );
 
-const channelName = buildFarmChannelName(displayName, cityId);
+    const channelName = buildFarmChannelName(displayName, cityId);
+
     const channels = await fetchGuildChannels(process.env.GUILD_ID);
-    const alreadyExists = channels.some((channel) => channel.name === channelName);
+    const exists = channels.some((channel) => channel.name === channelName);
 
-    if (alreadyExists) {
-      return ephemeral('❌ Já existe uma aba de farm para este membro.');
+    if (exists) {
+      return ephemeral(`❌ Já existe uma aba de farm chamada \`${channelName}\`.`);
     }
 
-    const baseState = calculateFarmProgress({
+    const state = createFarmState({
       userId: memberId,
       discordName: resolvedUser?.username || displayName,
       nomeExibicao: displayName,
       idCidade: cityId,
       metaSemanal,
-      totalEntregue: 0,
-      faltante: metaSemanal,
-      progresso: 0,
-      status: 'Pendente',
       observacao,
       criadoPor: interaction.member.user.username,
-      criadoEm: new Date().toISOString(),
-      atualizadoEm: new Date().toISOString(),
-      mainMessageId: '',
     });
 
-    const permissionOverwrites = [
-      {
-        id: process.env.GUILD_ID,
-        type: 0,
-        deny: denyViewChannel(),
-      },
-      ...buildStaffPermissionOverwrites(),
-      {
-        id: memberId,
-        type: 1,
-        allow: allowChannelBasic(),
-      },
-    ];
-
-    const channelPayload = {
+    const payload = {
       name: channelName,
       type: ChannelTypes.GUILD_TEXT,
-      topic: serializeFarmState(baseState),
-      permission_overwrites: permissionOverwrites,
+      permission_overwrites: buildPermissionOverwrites(memberId),
     };
 
     if (process.env.CATEGORIA_FARM) {
-      channelPayload.parent_id = process.env.CATEGORIA_FARM;
+      payload.parent_id = process.env.CATEGORIA_FARM;
     }
 
-    console.log('CRIARFARM payload canal:', JSON.stringify(channelPayload, null, 2));
+    const channel = await createGuildChannel(process.env.GUILD_ID, payload);
 
-    const createdChannel = await createGuildChannel(process.env.GUILD_ID, channelPayload);
-
-    const mainMessage = await sendChannelMessage(createdChannel.id, {
+    const mainMessage = await sendChannelMessage(channel.id, {
       content: `<@${memberId}>`,
-      embeds: [buildFarmControlEmbed(baseState)],
-      components: [
-        {
-          type: 1,
-          components: [
-            {
-              type: MessageComponentTypes.BUTTON,
-              style: ButtonStyleTypes.SUCCESS,
-              custom_id: 'farm_register_delivery',
-              label: 'Registrar entrega',
-              emoji: { name: '✅' },
-            },
-            {
-              type: MessageComponentTypes.BUTTON,
-              style: ButtonStyleTypes.PRIMARY,
-              custom_id: 'farm_update_goal',
-              label: 'Atualizar meta',
-              emoji: { name: '💰' },
-            },
-            {
-              type: MessageComponentTypes.BUTTON,
-              style: ButtonStyleTypes.SECONDARY,
-              custom_id: 'farm_add_note',
-              label: 'Adicionar observação',
-              emoji: { name: '📝' },
-            },
-          ],
-        },
-        {
-          type: 1,
-          components: [
-            {
-              type: MessageComponentTypes.BUTTON,
-              style: ButtonStyleTypes.SECONDARY,
-              custom_id: 'farm_reset_week',
-              label: 'Resetar semana',
-              emoji: { name: '♻️' },
-            },
-            {
-              type: MessageComponentTypes.BUTTON,
-              style: ButtonStyleTypes.DANGER,
-              custom_id: 'farm_delete_channel',
-              label: 'Excluir aba',
-              emoji: { name: '🗑️' },
-            },
-          ],
-        },
-      ],
+      embeds: [buildFarmEmbed(state)],
+      components: buildFarmComponents(),
     });
 
     const finalState = {
-      ...baseState,
+      ...state,
+      channelId: channel.id,
       mainMessageId: mainMessage.id,
     };
 
-    await editChannel(createdChannel.id, {
+    await editChannel(channel.id, {
       topic: serializeFarmState(finalState),
     });
 
-    logSuccess(`Aba de farm criada para ${displayName}.`);
+    await sendChannelMessage(channel.id, {
+      content: `✅ Aba criada por **${interaction.member.user.username}**. Meta semanal: **${state.metaFormatada}**.`,
+    });
 
-    return {
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: {
-        content: `✅ Aba de farm criada com sucesso: <#${createdChannel.id}>`,
-        flags: 64,
-      },
-    };
+    logSuccess(`Aba de farm criada: ${channelName}`);
+
+    return ephemeral(`✅ Aba de farm criada com sucesso: <#${channel.id}>`);
   } catch (error) {
-    logError('Erro ao criar aba de farm.', error);
+    logError('Erro ao criar farm', error);
     return ephemeral('❌ Erro ao criar aba de farm. Verifique os logs da Vercel.');
   }
 }

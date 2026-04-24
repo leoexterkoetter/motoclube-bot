@@ -1,20 +1,58 @@
-function getDefaultFarmState() {
+const { formatCurrency } = require('./embeds');
+
+function calculateFarmProgress(state) {
+  const meta = Number(state.metaSemanal || 0);
+  const total = Number(state.totalEntregue || 0);
+
+  const faltante = Math.max(meta - total, 0);
+  const progresso = meta > 0 ? Math.min(Math.round((total / meta) * 100), 999) : 0;
+
+  let status = 'Pendente';
+
+  if (total > 0 && total < meta) {
+    status = 'Em andamento';
+  }
+
+  if (meta > 0 && total >= meta) {
+    status = 'Meta batida';
+  }
+
   return {
-    userId: '',
-    discordName: '',
-    nomeExibicao: '',
-    idCidade: '',
-    metaSemanal: 0,
+    ...state,
+    metaSemanal: meta,
+    totalEntregue: total,
+    faltante,
+    progresso,
+    status,
+    metaFormatada: formatCurrency(meta),
+    totalFormatado: formatCurrency(total),
+    faltanteFormatado: formatCurrency(faltante),
+  };
+}
+
+function createFarmState({
+  userId,
+  discordName,
+  nomeExibicao,
+  idCidade,
+  metaSemanal,
+  observacao,
+  criadoPor,
+}) {
+  return calculateFarmProgress({
+    userId,
+    discordName,
+    nomeExibicao,
+    idCidade,
+    metaSemanal,
     totalEntregue: 0,
-    faltante: 0,
-    progresso: 0,
-    status: 'Pendente',
-    observacao: 'Sem observações.',
-    criadoPor: '',
+    observacao: observacao || 'Sem observações.',
+    criadoPor,
     criadoEm: new Date().toISOString(),
     atualizadoEm: new Date().toISOString(),
+    channelId: '',
     mainMessageId: '',
-  };
+  });
 }
 
 function serializeFarmState(state) {
@@ -23,41 +61,18 @@ function serializeFarmState(state) {
 
 function parseFarmState(topicText) {
   if (!topicText || !topicText.startsWith('farm_state:')) {
-    return getDefaultFarmState();
+    return {};
   }
 
   try {
     const base64 = topicText.replace('farm_state:', '');
-    return {
-      ...getDefaultFarmState(),
-      ...JSON.parse(Buffer.from(base64, 'base64').toString('utf8')),
-    };
+    return JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
   } catch {
-    return getDefaultFarmState();
+    return {};
   }
 }
 
-function calculateFarmProgress(state) {
-  const meta = Number(state.metaSemanal || 0);
-  const entregue = Number(state.totalEntregue || 0);
-  const faltante = Math.max(meta - entregue, 0);
-  const progresso = meta > 0 ? Math.min(Math.round((entregue / meta) * 100), 999) : 0;
-
-  let status = 'Pendente';
-  if (entregue > 0 && entregue < meta) status = 'Em andamento';
-  if (meta > 0 && entregue >= meta) status = 'Meta batida';
-
-  return {
-    ...state,
-    metaSemanal: meta,
-    totalEntregue: entregue,
-    faltante,
-    progresso,
-    status,
-  };
-}
-
-function resetFarmWeekState(state) {
+function resetFarmState(state) {
   return calculateFarmProgress({
     ...state,
     totalEntregue: 0,
@@ -65,19 +80,10 @@ function resetFarmWeekState(state) {
   });
 }
 
-function formatCurrency(value) {
-  return Number(value || 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    maximumFractionDigits: 0,
-  });
-}
-
 module.exports = {
-  getDefaultFarmState,
+  calculateFarmProgress,
+  createFarmState,
   serializeFarmState,
   parseFarmState,
-  calculateFarmProgress,
-  resetFarmWeekState,
-  formatCurrency,
+  resetFarmState,
 };

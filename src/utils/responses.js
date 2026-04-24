@@ -11,6 +11,14 @@ function ephemeral(content, extra = {}) {
   };
 }
 
+function modal(data) {
+  return {
+    type: 9,
+    data,
+  };
+}
+
 module.exports = {
   ephemeral,
+  modal,
 };
